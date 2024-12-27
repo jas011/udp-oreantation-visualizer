@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Plane with Dynamic Coordinates</title>
+    <!-- Correct CDN for Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <script>
+        window.onload = () => {
+            // Socket.io for UDP messages
+            const socket = io();
+
+            // Three.js setup
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Create a PlaneGeometry
+            const geometry = new THREE.BoxGeometry(2,1,1); // Width, Height, Width Segments, Height Segments
+            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+            const plane = new THREE.Mesh(geometry, material);
+            scene.add(plane);
+
+            // Set default position when no data is received
+            plane.position.set(0, 0,5); // Default position is (0, 1, 0)
+
+            camera.position.z = 8;
+
+            // Initially, don't rotate the plane
+            let hasData = false; // Flag to check if data was received
+
+            // Listen for UDP messages and update the plane's coordinates
+            socket.on('udpMessage', (data) => {
+                const coordinates = parseData(data.message);
+                console.log(coordinates);
+                if (coordinates) {
+                    updatePlane(coordinates);
+                    hasData = true; // Set flag when data is received
+                }
+            });
+
+            // Parse the string data into coordinates
+            function parseData(message) {
+                const accelMatch = message.match(/Accel: X=(-?\d+\.\d+) Y=(-?\d+\.\d+) Z=(-?\d+\.\d+)/);
+                const gyroMatch = message.match(/Gyro: X=(-?\d+\.\d+) Y=(-?\d+\.\d+) Z=(-?\d+\.\d+)/);
+                if (accelMatch && gyroMatch) {
+                    return {
+                        accel: { x: Number(accelMatch[1]), y: Number(accelMatch[2]), z: Number(accelMatch[3]) },
+                        gyro: { x: Number(gyroMatch[1]), y: Number(gyroMatch[2]), z: Number(gyroMatch[3]) }
+                    };
+                }
+                return null;
+            }
+
+            // Update the plane's geometry based on parsed coordinates
+            function updatePlane(coordinates) {
+                const positionAttribute = geometry.attributes.position;
+                animate(coordinates.accel.x,coordinates.accel.y);
+         
+                    
+              
+
+                positionAttribute.needsUpdate = true;
+            }
+
+            // Animation loop
+            function animate(x,y) {
+
+                
+
+                // If no data received, do not rotate the plane
+                if (hasData) {
+                    plane.rotation.x = x/10;
+                    plane.rotation.z = -y/10;
+                }
+
+                renderer.render(scene, camera);
+            }
+            
+        };
+    </script>
+</body>
+</html>
